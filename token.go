@@ -1,7 +1,13 @@
 package authentication
 
+func newToken(id ProfileID) *Token {
+	return &Token{
+		ProfileID: id,
+	}
+}
+
 type Token struct {
-	UserID int64
+	ProfileID ProfileID
 }
 
 func (t *Token) GetEmail() (string, error) {

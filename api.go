@@ -14,6 +14,7 @@ type TokenID string
 type TokenLifeTime int64
 type Auth struct {
 	TokenLifeTimeSecond TokenLifeTime
+	ProfilePasswordSalt []byte
 	TokenSecretKey      []byte
 	st                  DriverStorage
 }
@@ -25,11 +26,49 @@ func NewAuth(st DriverStorage) *Auth {
 }
 
 func (a *Auth) Registration(login, email, password string) (*Token, error) {
-	return newToken(0), nil
+
+	uniqueLogin, err := a.st.IsUniqueLogin(login)
+	if err != nil {
+		return nil, err
+	}
+
+	if !uniqueLogin {
+		return nil, ErrLoginNotUnique
+	}
+
+	uniqueEmail, err := a.st.IsUniqueEmail(email)
+	if err != nil {
+		return nil, err
+	}
+	if !uniqueEmail {
+		return nil, ErrEmailNotUnique
+	}
+	profID, err := a.st.NewProfile(login, email, a.profilePasswordHash(login, password))
+	if err != nil {
+		return nil, err
+	}
+	return newToken(a.st, profID), nil
+}
+
+func (a *Auth) profilePasswordHash(login, password string) string {
+	return signature(a.ProfilePasswordSalt, []byte(login), a.ProfilePasswordSalt, []byte(password))
 }
 
 func (a *Auth) Authentication(login, password string) (*Token, error) {
-	return newToken(0), nil
+	exist, profileID, passHash1, err := a.st.GetPasswordByLogin(login)
+	if err != nil {
+		return nil, err
+	}
+
+	if !exist {
+		return nil, ErrWrongLoginOrPassword
+	}
+
+	if a.profilePasswordHash(login, password) != passHash1 {
+		return nil, ErrWrongLoginOrPassword
+	}
+
+	return newToken(a.st, profileID), nil
 }
 
 func (a *Auth) ForgotPassword(email string) (EmailSecretKey, error) {
@@ -46,8 +85,8 @@ func (a *Auth) AllowedChangeEmail(key EmailSecretKey, newEmail string) (bool, er
 
 var poolLifeTIME = newPoolLifeTime()
 
-func (a *Auth) NewToken(tok *Token) (string, error) {
-	mTok := &MarshallToken{
+func (a *Auth) NewPublicToken(tok *Token) (string, error) {
+	mTok := &MarshallPublicToken{
 		ID:       TokenID(uuid.New().String()),
 		LifeTime: TokenLifeTime(time.Now().Unix()) + a.TokenLifeTimeSecond,
 	}
@@ -66,13 +105,13 @@ func (a *Auth) NewToken(tok *Token) (string, error) {
 	return base64.URLEncoding.EncodeToString(bs), nil
 }
 
-func (a *Auth) ReadToken(token string) (*Token, error) {
+func (a *Auth) ReadPublicToken(token string) (*Token, error) {
 	bs, err := base64.URLEncoding.DecodeString(token)
 	if err != nil {
 		return nil, err
 	}
 
-	mTok := new(MarshallToken)
+	mTok := new(MarshallPublicToken)
 	err = json.Unmarshal(bs, mTok)
 	if err != nil {
 		return nil, err
@@ -93,11 +132,11 @@ func (a *Auth) ReadToken(token string) (*Token, error) {
 	return tok, nil
 }
 
-func (a *Auth) DelToken(tokID TokenID, profID ProfileID) error {
+func (a *Auth) DelPublicToken(tokID TokenID, profID ProfileID) error {
 	return a.st.DelToken(tokID, profID)
 }
 
-type MarshallToken struct {
+type MarshallPublicToken struct {
 	ID       TokenID
 	LifeTime TokenLifeTime
 	Hash     string

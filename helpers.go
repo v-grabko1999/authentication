@@ -73,12 +73,12 @@ func signature(secret_key []byte, values ...[]byte) string {
 	return base64.URLEncoding.EncodeToString(h.Sum(nil))
 }
 
-type profilePasswordSaltTranz struct {
+type passwordHasher struct {
 	bs []byte
 	s  sync.RWMutex
 }
 
-func (p *profilePasswordSaltTranz) Hash(login, password string) string {
+func (p *passwordHasher) Hash(login, password string) string {
 	p.s.RLock()
 	defer p.s.RUnlock()
 	return signature(p.bs, []byte(login), p.bs, []byte(password))

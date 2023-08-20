@@ -17,31 +17,44 @@ type TokenLifeTime int64
 type AuthConfig struct {
 	DriverStorage       DriverStorage
 	TokenLifeTimeSecond TokenLifeTime
+	EmailLifeTimeSecond int64
 	ProfilePasswordSalt []byte
 	TokenSecretKey      []byte
 }
 
 func NewAuth(cfg AuthConfig) *Auth {
-	profilePasswordSalt := new(profilePasswordSaltTranz)
-	profilePasswordSalt.s = sync.RWMutex{}
-	profilePasswordSalt.bs = cfg.ProfilePasswordSalt
+	passwordHasher := new(passwordHasher)
+	passwordHasher.s = sync.RWMutex{}
+	passwordHasher.bs = cfg.ProfilePasswordSalt
+
+	tokConfig := &profileConfig{
+		st:             cfg.DriverStorage,
+		passwordHasher: passwordHasher,
+		emailLifeTime:  cfg.EmailLifeTimeSecond,
+	}
 
 	return &Auth{
 		st:                  cfg.DriverStorage,
 		tokenLifeTimeSecond: cfg.TokenLifeTimeSecond,
-		profilePasswordSalt: profilePasswordSalt,
+		emailLifeTimeSecond: cfg.EmailLifeTimeSecond,
 		tokenSecretKey:      cfg.TokenSecretKey,
+
+		tokenConfig:         tokConfig,
+		profilePasswordSalt: passwordHasher,
 	}
 }
 
 type Auth struct {
 	st                  DriverStorage
 	tokenLifeTimeSecond TokenLifeTime
-	profilePasswordSalt *profilePasswordSaltTranz
+	emailLifeTimeSecond int64
 	tokenSecretKey      []byte
+
+	tokenConfig         *profileConfig
+	profilePasswordSalt *passwordHasher
 }
 
-func (a *Auth) Registration(login, email, password string) (*Token, error) {
+func (a *Auth) Registration(login, email, password string) (*Profile, error) {
 
 	uniqueLogin, err := a.st.IsUniqueLogin(login)
 	if err != nil {
@@ -64,10 +77,10 @@ func (a *Auth) Registration(login, email, password string) (*Token, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newToken(a.st, a.profilePasswordSalt, profID), nil
+	return newToken(a.tokenConfig, profID), nil
 }
 
-func (a *Auth) Authentication(login, password string) (*Token, error) {
+func (a *Auth) Authentication(login, password string) (*Profile, error) {
 	exist, profileID, passHash1, err := a.st.GetPasswordByLogin(login)
 	if err != nil {
 		return nil, err
@@ -81,22 +94,41 @@ func (a *Auth) Authentication(login, password string) (*Token, error) {
 		return nil, ErrWrongLoginOrPassword
 	}
 
-	return newToken(a.st, a.profilePasswordSalt, profileID), nil
+	return newToken(a.tokenConfig, profileID), nil
 }
 
 func (a *Auth) ForgotPassword(email string) (EmailSecretKey, error) {
-	return "", nil
+	secret := EmailSecretKey(uuid.New().String())
+	err := a.st.EmailNewSecretKey(secret, email, a.emailLifeTimeSecond)
+	return secret, err
 }
 
-func (a *Auth) RecoveryPassword(key EmailSecretKey, newPassword string) (bool, error) {
-	return true, nil
+func (a *Auth) RecoveryPassword(key EmailSecretKey, newPassword string) error {
+	email, err := a.st.EmailReadSecretKey(key)
+	if err != nil {
+		return err
+	}
+	login, err := a.st.GetLoginByEmail(email)
+	if err != nil {
+		return err
+	}
+	return a.st.SetPasswordProfileByEmail(email, a.profilePasswordSalt.Hash(login, newPassword))
 }
 
-func (a *Auth) AllowedChangeEmail(key EmailSecretKey, newEmail string) (bool, error) {
-	return true, nil
+func (a *Auth) AllowedChangeEmail(key EmailSecretKey, newEmail string) error {
+	email, err := a.st.EmailReadSecretKey(key)
+	if err != nil {
+		return err
+	}
+	pid, err := a.st.GetProfileIDByEmail(email)
+	if err != nil {
+		return err
+	}
+
+	return a.st.SetEmailByProfileID(pid, newEmail)
 }
 
-type MarshallPublicToken struct {
+type Token struct {
 	ID       TokenID
 	LifeTime TokenLifeTime
 	Hash     string
@@ -104,8 +136,8 @@ type MarshallPublicToken struct {
 
 var poolLifeTIME = newPoolLifeTime()
 
-func (a *Auth) NewPublicToken(tok *Token) (string, error) {
-	mTok := &MarshallPublicToken{
+func (a *Auth) NewToken(prof *Profile) (string, error) {
+	mTok := &Token{
 		ID:       TokenID(uuid.New().String()),
 		LifeTime: TokenLifeTime(time.Now().Unix()) + a.tokenLifeTimeSecond,
 	}
@@ -117,32 +149,20 @@ func (a *Auth) NewPublicToken(tok *Token) (string, error) {
 		return "", err
 	}
 
-	if err := a.st.NewToken(mTok.ID, tok.ProfileID, mTok.LifeTime); err != nil {
+	if err := a.st.NewToken(mTok.ID, prof.ProfileID, mTok.LifeTime); err != nil {
 		return "", err
 	}
 
 	return base64.URLEncoding.EncodeToString(bs), nil
 }
 
-func (a *Auth) ReadPublicToken(token string) (*Token, error) {
-	bs, err := base64.URLEncoding.DecodeString(token)
+func (a *Auth) ReadToken(publickToken string) (*Profile, error) {
+	mTok, err := readToken(a.tokenSecretKey, publickToken)
 	if err != nil {
 		return nil, err
 	}
 
-	mTok := new(MarshallPublicToken)
-	err = json.Unmarshal(bs, mTok)
-	if err != nil {
-		return nil, err
-	}
-
-	mtokHash := signature(a.tokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
-
-	if mtokHash != mTok.Hash {
-		return nil, ErrTokenInvalidSignature
-	}
-
-	tok := new(Token)
+	tok := new(Profile)
 	tok.ProfileID, err = a.st.ReadToken(mTok.ID)
 	if err != nil {
 		return nil, err
@@ -151,6 +171,32 @@ func (a *Auth) ReadPublicToken(token string) (*Token, error) {
 	return tok, nil
 }
 
-func (a *Auth) DelPublicToken(tokID TokenID, profID ProfileID) error {
-	return a.st.DelToken(tokID, profID)
+func (a *Auth) DelPublicToken(publickToken string, profID ProfileID) error {
+	mTok, err := readToken(a.tokenSecretKey, publickToken)
+	if err != nil {
+		return err
+	}
+	return a.st.DelToken(mTok.ID, profID)
+}
+
+// @todo реализовать проверку времени жизни токена
+func readToken(tokenSecretKey []byte, publickToken string) (*Token, error) {
+	bs, err := base64.URLEncoding.DecodeString(publickToken)
+	if err != nil {
+		return nil, err
+	}
+
+	mTok := new(Token)
+	err = json.Unmarshal(bs, mTok)
+	if err != nil {
+		return nil, err
+	}
+
+	mtokHash := signature(tokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
+
+	if mtokHash != mTok.Hash {
+		return nil, ErrTokenInvalidSignature
+	}
+
+	return mTok, nil
 }

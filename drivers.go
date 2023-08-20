@@ -21,9 +21,15 @@ type DriverStorage interface {
 
 	GetProfileIDByEmail(email string) (profileID ProfileID, err error)
 	GetPasswordByID(profileID ProfileID) (password string, err error)
-	GetPasswordByLogin(login string) (exist bool, profileID ProfileID, password string, err error)
+	GetPasswordByLogin(login string) (res *ResultPasswordByLogin, err error)
 	GetLoginByEmail(email string) (login string, err error)
 
 	GetEmail(profileID ProfileID) (email string, err error)
 	GetLogin(profileID ProfileID) (login string, err error)
+}
+
+type ResultPasswordByLogin struct {
+	Exist     bool
+	ProfileID ProfileID
+	Password  string
 }

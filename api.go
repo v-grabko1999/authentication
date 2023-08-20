@@ -81,20 +81,20 @@ func (a *Auth) Registration(login, email, password string) (*Profile, error) {
 }
 
 func (a *Auth) Authentication(login, password string) (*Profile, error) {
-	exist, profileID, passHash1, err := a.st.GetPasswordByLogin(login)
+	res, err := a.st.GetPasswordByLogin(login)
 	if err != nil {
 		return nil, err
 	}
 
-	if !exist {
+	if !res.Exist {
 		return nil, ErrWrongLoginOrPassword
 	}
 
-	if a.profilePasswordSalt.Hash(login, password) != passHash1 {
+	if a.profilePasswordSalt.Hash(login, password) != res.Password {
 		return nil, ErrWrongLoginOrPassword
 	}
 
-	return newToken(a.tokenConfig, profileID), nil
+	return newToken(a.tokenConfig, res.ProfileID), nil
 }
 
 func (a *Auth) ForgotPassword(email string) (EmailSecretKey, error) {

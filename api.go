@@ -3,6 +3,7 @@ package authentication
 import (
 	"encoding/base64"
 	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,17 +13,32 @@ type EmailSecretKey string
 type ProfileID int64
 type TokenID string
 type TokenLifeTime int64
-type Auth struct {
+
+type AuthConfig struct {
+	DriverStorage       DriverStorage
 	TokenLifeTimeSecond TokenLifeTime
 	ProfilePasswordSalt []byte
 	TokenSecretKey      []byte
-	st                  DriverStorage
 }
 
-func NewAuth(st DriverStorage) *Auth {
+func NewAuth(cfg AuthConfig) *Auth {
+	profilePasswordSalt := new(profilePasswordSaltTranz)
+	profilePasswordSalt.s = sync.RWMutex{}
+	profilePasswordSalt.bs = cfg.ProfilePasswordSalt
+
 	return &Auth{
-		st: st,
+		st:                  cfg.DriverStorage,
+		tokenLifeTimeSecond: cfg.TokenLifeTimeSecond,
+		profilePasswordSalt: profilePasswordSalt,
+		tokenSecretKey:      cfg.TokenSecretKey,
 	}
+}
+
+type Auth struct {
+	st                  DriverStorage
+	tokenLifeTimeSecond TokenLifeTime
+	profilePasswordSalt *profilePasswordSaltTranz
+	tokenSecretKey      []byte
 }
 
 func (a *Auth) Registration(login, email, password string) (*Token, error) {
@@ -43,15 +59,12 @@ func (a *Auth) Registration(login, email, password string) (*Token, error) {
 	if !uniqueEmail {
 		return nil, ErrEmailNotUnique
 	}
-	profID, err := a.st.NewProfile(login, email, a.profilePasswordHash(login, password))
+
+	profID, err := a.st.NewProfile(login, email, a.profilePasswordSalt.Hash(login, password))
 	if err != nil {
 		return nil, err
 	}
-	return newToken(a.st, profID), nil
-}
-
-func (a *Auth) profilePasswordHash(login, password string) string {
-	return signature(a.ProfilePasswordSalt, []byte(login), a.ProfilePasswordSalt, []byte(password))
+	return newToken(a.st, a.profilePasswordSalt, profID), nil
 }
 
 func (a *Auth) Authentication(login, password string) (*Token, error) {
@@ -64,11 +77,11 @@ func (a *Auth) Authentication(login, password string) (*Token, error) {
 		return nil, ErrWrongLoginOrPassword
 	}
 
-	if a.profilePasswordHash(login, password) != passHash1 {
+	if a.profilePasswordSalt.Hash(login, password) != passHash1 {
 		return nil, ErrWrongLoginOrPassword
 	}
 
-	return newToken(a.st, profileID), nil
+	return newToken(a.st, a.profilePasswordSalt, profileID), nil
 }
 
 func (a *Auth) ForgotPassword(email string) (EmailSecretKey, error) {
@@ -83,15 +96,21 @@ func (a *Auth) AllowedChangeEmail(key EmailSecretKey, newEmail string) (bool, er
 	return true, nil
 }
 
+type MarshallPublicToken struct {
+	ID       TokenID
+	LifeTime TokenLifeTime
+	Hash     string
+}
+
 var poolLifeTIME = newPoolLifeTime()
 
 func (a *Auth) NewPublicToken(tok *Token) (string, error) {
 	mTok := &MarshallPublicToken{
 		ID:       TokenID(uuid.New().String()),
-		LifeTime: TokenLifeTime(time.Now().Unix()) + a.TokenLifeTimeSecond,
+		LifeTime: TokenLifeTime(time.Now().Unix()) + a.tokenLifeTimeSecond,
 	}
 
-	mTok.Hash = signature(a.TokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
+	mTok.Hash = signature(a.tokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
 
 	bs, err := json.Marshal(mTok)
 	if err != nil {
@@ -117,7 +136,7 @@ func (a *Auth) ReadPublicToken(token string) (*Token, error) {
 		return nil, err
 	}
 
-	mtokHash := signature(a.TokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
+	mtokHash := signature(a.tokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
 
 	if mtokHash != mTok.Hash {
 		return nil, ErrTokenInvalidSignature
@@ -134,24 +153,4 @@ func (a *Auth) ReadPublicToken(token string) (*Token, error) {
 
 func (a *Auth) DelPublicToken(tokID TokenID, profID ProfileID) error {
 	return a.st.DelToken(tokID, profID)
-}
-
-type MarshallPublicToken struct {
-	ID       TokenID
-	LifeTime TokenLifeTime
-	Hash     string
-}
-
-var poolHash = newPoolHash()
-
-func signature(secret_key []byte, values ...[]byte) string {
-	h := poolHash.Get()
-	defer poolHash.Put(h)
-
-	h.Write(secret_key)
-	for _, value := range values {
-		h.Write(value)
-	}
-
-	return base64.URLEncoding.EncodeToString(h.Sum(nil))
 }

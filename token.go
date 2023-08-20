@@ -1,14 +1,16 @@
 package authentication
 
-func newToken(st DriverStorage, id ProfileID) *Token {
+func newToken(st DriverStorage, pr *profilePasswordSaltTranz, id ProfileID) *Token {
 	return &Token{
 		st:        st,
+		prSalt:    pr,
 		ProfileID: id,
 	}
 }
 
 type Token struct {
 	st        DriverStorage
+	prSalt    *profilePasswordSaltTranz
 	ProfileID ProfileID
 }
 

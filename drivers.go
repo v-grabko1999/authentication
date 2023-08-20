@@ -10,4 +10,7 @@ type DriverStorage interface {
 
 	NewProfile(login, email, password string) (ProfileID, error)
 	GetPasswordByLogin(login string) (exist bool, profileID ProfileID, password string, err error)
+
+	GetEmail(profileID ProfileID) (email string, err error)
+	GetLogin(profileID ProfileID) (login string, err error)
 }

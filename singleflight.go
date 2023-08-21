@@ -49,13 +49,13 @@ func (sing *SingleflightDriverStorage) DelToken(tokenID TokenID, profileID Profi
 }
 
 func (sing *SingleflightDriverStorage) IsUniqueLogin(login string) (bool, error) {
-	v, err, _ := sing.req.Do("UniqueL"+string(login), func() (interface{}, error) {
+	v, err, _ := sing.req.Do("1"+string(login), func() (interface{}, error) {
 		return sing.st.IsUniqueLogin(login)
 	})
 	return v.(bool), err
 }
 func (sing *SingleflightDriverStorage) IsUniqueEmail(email string) (bool, error) {
-	v, err, _ := sing.req.Do("UniqueE"+string(email), func() (interface{}, error) {
+	v, err, _ := sing.req.Do("2"+string(email), func() (interface{}, error) {
 		return sing.st.IsUniqueEmail(email)
 	})
 	return v.(bool), err
@@ -79,40 +79,40 @@ func (sing *SingleflightDriverStorage) SetEmailByProfileID(profileID ProfileID, 
 }
 
 func (sing *SingleflightDriverStorage) GetProfileIDByEmail(email string) (profileID ProfileID, err error) {
-	v, err, _ := sing.req.Do("gE"+string(email), func() (interface{}, error) {
+	v, err, _ := sing.req.Do("3"+string(email), func() (interface{}, error) {
 		return sing.st.GetProfileIDByEmail(email)
 	})
 	return v.(ProfileID), err
 }
 func (sing *SingleflightDriverStorage) GetPasswordByID(profileID ProfileID) (password string, err error) {
-	v, err, _ := sing.req.Do(fmt.Sprint("pI", profileID), func() (interface{}, error) {
+	v, err, _ := sing.req.Do(fmt.Sprint("4", profileID), func() (interface{}, error) {
 		return sing.st.GetPasswordByID(profileID)
 	})
 	return v.(string), err
 }
 
 func (sing *SingleflightDriverStorage) GetPasswordByLogin(login string) (res *ResultPasswordByLogin, err error) {
-	v, err, _ := sing.req.Do("pL"+string(login), func() (interface{}, error) {
+	v, err, _ := sing.req.Do("5"+string(login), func() (interface{}, error) {
 		return sing.st.GetPasswordByLogin(login)
 	})
 	return v.(*ResultPasswordByLogin), err
 }
 func (sing *SingleflightDriverStorage) GetLoginByEmail(email string) (login string, err error) {
-	v, err, _ := sing.req.Do("geLE"+string(email), func() (interface{}, error) {
+	v, err, _ := sing.req.Do("6"+string(email), func() (interface{}, error) {
 		return sing.st.GetLoginByEmail(email)
 	})
 	return v.(string), err
 }
 
 func (sing *SingleflightDriverStorage) GetEmail(profileID ProfileID) (email string, err error) {
-	v, err, _ := sing.req.Do(fmt.Sprint("geE", profileID), func() (interface{}, error) {
+	v, err, _ := sing.req.Do(fmt.Sprint("7", profileID), func() (interface{}, error) {
 		return sing.st.GetEmail(profileID)
 	})
 	return v.(string), err
 }
 
 func (sing *SingleflightDriverStorage) GetLogin(profileID ProfileID) (login string, err error) {
-	v, err, _ := sing.req.Do(fmt.Sprint("geL", profileID), func() (interface{}, error) {
+	v, err, _ := sing.req.Do(fmt.Sprint("8", profileID), func() (interface{}, error) {
 		return sing.st.GetLogin(profileID)
 	})
 	return v.(string), err

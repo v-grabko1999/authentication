@@ -1,6 +1,7 @@
 package drivers
 
 import (
+	"errors"
 	"time"
 
 	"github.com/v-grabko1999/authentication"
@@ -48,28 +49,72 @@ type GormDriver struct {
 }
 
 func (g *GormDriver) EmailNewSecretKey(key authentication.EmailSecretKey, email string, lifetime int64) error {
-	return nil
+	return g.db.Create(&GormEmailSecretKeyModel{
+		Key:      string(key),
+		Email:    email,
+		Expiries: time.Now().Unix() + lifetime,
+	}).Error
 }
-func (g *GormDriver) EmailReadSecretKey(key authentication.EmailSecretKey) (email string, err error) {
-	return "", nil
+
+func (g *GormDriver) EmailReadSecretKey(key authentication.EmailSecretKey) (string, error) {
+	model := &GormEmailSecretKeyModel{}
+	err := g.db.Where("key = ?", string(key)).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", authentication.ErrEmailSecretKeyNotFound
+		} else {
+			return "", err
+		}
+	}
+
+	//время жизни секретного ключа истекло
+	if model.Expiries < time.Now().Unix() {
+		if err := g.EmailDeleteSecretKey(key); err != nil {
+			return "", err
+		}
+		return "", authentication.ErrEmailSecretKeyNotFound
+	}
+
+	return model.Email, err
 }
+
 func (g *GormDriver) EmailDeleteSecretKey(key authentication.EmailSecretKey) error {
-	return nil
+	return g.db.Delete(&GormEmailSecretKeyModel{Key: string(key)}).Error
 }
 
 func (g *GormDriver) NewToken(tokenID authentication.TokenID, profileID authentication.ProfileID, lifeTime authentication.TokenLifeTime) error {
-	return nil
+	return g.db.Create(&GormTokenModel{
+		Key:       string(tokenID),
+		Expiries:  time.Now().Unix() + int64(lifeTime),
+		ProfileID: int64(profileID),
+	}).Error
 }
+
 func (g *GormDriver) ReadToken(tokenID authentication.TokenID) (authentication.ProfileID, error) {
-	return 0, nil
+	model := &GormTokenModel{}
+	err := g.db.Where("key = ?", string(tokenID)).First(model).Error
+	if err != nil {
+		return 0, err
+	}
+	//время жизни токена истекло
+	if model.Expiries < time.Now().Unix() {
+		if err := g.DelToken(tokenID, authentication.ProfileID(model.ProfileID)); err != nil {
+			return 0, err
+		}
+		return 0, authentication.ErrTokenNotFound
+	}
+
+	return authentication.ProfileID(model.ProfileID), err
 }
+
 func (g *GormDriver) DelToken(tokenID authentication.TokenID, profileID authentication.ProfileID) error {
-	return nil
+	return g.db.Delete(&GormTokenModel{Key: string(tokenID)}).Error
 }
 
 func (g *GormDriver) IsUniqueLogin(login string) (bool, error) {
 	return false, nil
 }
+
 func (g *GormDriver) IsUniqueEmail(email string) (bool, error) {
 	return false, nil
 }

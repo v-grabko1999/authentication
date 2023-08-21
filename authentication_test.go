@@ -17,7 +17,13 @@ func TestMain(t *testing.T) {
 		t.Fatal("error open sqlLite", err)
 		return
 	}
-
+	/*dsn := "books:(1YAuc[z1uefCxY0@tcp(127.0.0.1:3306)/books?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatal("error open mysql", err)
+		return
+	}
+	*/
 	dr, err := drivers.NewGorm(db)
 	if err != nil {
 		t.Fatal("error new gorm driver", err)
@@ -26,7 +32,6 @@ func TestMain(t *testing.T) {
 
 	a = authentication.NewAuth(authentication.AuthConfig{
 		DriverStorage:       authentication.RunSingleflightDriverStorage(dr),
-		TokenLifeTimeSecond: 60 * 60 * 24 * 365,
 		EmailLifeTimeSecond: 60 * 60 * 24,
 		ProfilePasswordSalt: []byte("test password salt"),
 		TokenSecretKey:      []byte("token secret keu"),
@@ -75,4 +80,8 @@ func TestMain(t *testing.T) {
 		//удаление профиля
 		profile.DeleteProfile("new test password")
 	*/
+}
+
+func TestEmailSecretKey(t *testing.T) {
+
 }

@@ -16,7 +16,6 @@ type TokenLifeTime int64
 
 type AuthConfig struct {
 	DriverStorage       DriverStorage
-	TokenLifeTimeSecond TokenLifeTime
 	EmailLifeTimeSecond int64
 	ProfilePasswordSalt []byte
 	TokenSecretKey      []byte
@@ -35,7 +34,6 @@ func NewAuth(cfg AuthConfig) *Auth {
 
 	return &Auth{
 		st:                  cfg.DriverStorage,
-		tokenLifeTimeSecond: cfg.TokenLifeTimeSecond,
 		emailLifeTimeSecond: cfg.EmailLifeTimeSecond,
 		tokenSecretKey:      cfg.TokenSecretKey,
 
@@ -46,7 +44,6 @@ func NewAuth(cfg AuthConfig) *Auth {
 
 type Auth struct {
 	st                  DriverStorage
-	tokenLifeTimeSecond TokenLifeTime
 	emailLifeTimeSecond int64
 	tokenSecretKey      []byte
 
@@ -136,10 +133,10 @@ type Token struct {
 
 var poolLifeTIME = newPoolLifeTime()
 
-func (a *Auth) NewToken(prof *Profile) (string, error) {
+func (a *Auth) NewToken(prof *Profile, tokenLifeTimeSecond TokenLifeTime) (string, error) {
 	mTok := &Token{
 		ID:       TokenID(uuid.New().String()),
-		LifeTime: TokenLifeTime(time.Now().Unix()) + a.tokenLifeTimeSecond,
+		LifeTime: TokenLifeTime(time.Now().Unix()) + tokenLifeTimeSecond,
 	}
 
 	mTok.Hash = signature(a.tokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))

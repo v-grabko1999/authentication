@@ -5,32 +5,30 @@ import (
 
 	"github.com/v-grabko1999/authentication"
 	"github.com/v-grabko1999/authentication/drivers"
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
-var a *authentication.Auth
-
-func TestMain(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&foreign_keys=on"), &gorm.Config{})
+func TestGormDriver(t *testing.T) {
+	/*db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&foreign_keys=on"), &gorm.Config{})
 	if err != nil {
 		t.Fatal("error open sqlLite", err)
 		return
-	}
-	/*dsn := "books:(1YAuc[z1uefCxY0@tcp(127.0.0.1:3306)/books?charset=utf8mb4&parseTime=True&loc=Local"
+	}*/
+	dsn := "books:(1YAuc[z1uefCxY0@tcp(127.0.0.1:3306)/books?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatal("error open mysql", err)
 		return
 	}
-	*/
+
 	dr, err := drivers.NewGorm(db)
 	if err != nil {
 		t.Fatal("error new gorm driver", err)
 		return
 	}
 
-	a = authentication.NewAuth(authentication.AuthConfig{
+	authentication.NewAuth(authentication.AuthConfig{
 		DriverStorage:       authentication.RunSingleflightDriverStorage(dr),
 		EmailLifeTimeSecond: 60 * 60 * 24,
 		ProfilePasswordSalt: []byte("test password salt"),
@@ -80,8 +78,4 @@ func TestMain(t *testing.T) {
 		//удаление профиля
 		profile.DeleteProfile("new test password")
 	*/
-}
-
-func TestEmailSecretKey(t *testing.T) {
-
 }

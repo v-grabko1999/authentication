@@ -80,11 +80,10 @@ func (a *Auth) Registration(login, email, password string) (*Profile, error) {
 func (a *Auth) Authentication(login, password string) (*Profile, error) {
 	res, err := a.st.GetPasswordByLogin(login)
 	if err != nil {
+		if err == ErrLoginNotFound {
+			return nil, ErrWrongLoginOrPassword
+		}
 		return nil, err
-	}
-
-	if !res.Exist {
-		return nil, ErrWrongLoginOrPassword
 	}
 
 	if a.profilePasswordSalt.Hash(login, password) != res.Password {

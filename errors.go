@@ -12,4 +12,7 @@ var (
 
 	ErrEmailSecretKeyNotFound = errors.New("email secret key not found")
 	ErrTokenNotFound          = errors.New("token not found")
+	ErrLoginNotFound          = errors.New("login not found")
+	ErrEmailNotFound          = errors.New("login not found")
+	ErrProfileIdNotFound      = errors.New("profile id not found")
 )

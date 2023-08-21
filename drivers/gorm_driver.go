@@ -112,47 +112,128 @@ func (g *GormDriver) DelToken(tokenID authentication.TokenID, profileID authenti
 	return g.db.Delete(&GormTokenModel{Key: string(tokenID)}).Error
 }
 
+func (g *GormDriver) NewProfile(login, email, password string) (authentication.ProfileID, error) {
+	model := &GormProfileModel{
+		Login:    login,
+		Email:    email,
+		Password: password,
+	}
+	err := g.db.Create(model).Error
+	return authentication.ProfileID(model.ID), err
+}
+
+func (g *GormDriver) DelProfile(profileID authentication.ProfileID) error {
+	return g.db.Delete(&GormProfileModel{ID: int64(profileID)}).Error
+}
+
+func (g *GormDriver) SetPasswordProfileByEmail(email string, password string) error {
+	return g.db.Model(&GormProfileModel{}).Where("email = ?", email).Update("password", password).Error
+}
+
+func (g *GormDriver) SetPasswordProfileByProfileID(profileID authentication.ProfileID, password string) error {
+	return g.db.Model(&GormProfileModel{}).Where("id = ?", int64(profileID)).Update("password", password).Error
+}
+func (g *GormDriver) SetEmailByProfileID(profileID authentication.ProfileID, email string) error {
+	return g.db.Model(&GormProfileModel{}).Where("id = ?", int64(profileID)).Update("email", email).Error
+}
+
+func (g *GormDriver) GetProfileIDByEmail(email string) (profileID authentication.ProfileID, err error) {
+	model := &GormProfileModel{}
+	err = g.db.Select("id").Where("email = ?", email).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = authentication.ErrEmailNotFound
+		}
+	}
+	profileID = authentication.ProfileID(model.ID)
+	return
+}
+
+func (g *GormDriver) GetPasswordByID(profileID authentication.ProfileID) (password string, err error) {
+	model := &GormProfileModel{}
+	err = g.db.Select("password").Where("id = ?", int64(profileID)).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = authentication.ErrProfileIdNotFound
+		}
+	}
+	password = model.Password
+	return
+}
+
+func (g *GormDriver) GetPasswordByLogin(login string) (res *authentication.ResultPasswordByLogin, err error) {
+	model := &GormProfileModel{}
+	err = g.db.Select([]string{"id", "password"}).Where("login = ?", login).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = authentication.ErrProfileIdNotFound
+		}
+	}
+	res = &authentication.ResultPasswordByLogin{
+		ProfileID: authentication.ProfileID(model.ID),
+		Password:  model.Password,
+	}
+	return
+}
+
+func (g *GormDriver) GetLoginByEmail(email string) (login string, err error) {
+	model := &GormProfileModel{}
+	err = g.db.Select("login").Where("email = ?", email).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = authentication.ErrEmailNotFound
+		}
+	}
+	login = model.Login
+	return
+}
+
 func (g *GormDriver) IsUniqueLogin(login string) (bool, error) {
+	model := &GormProfileModel{}
+	err := g.db.Select("id").Where("login = ?", login).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return true, nil
+		} else {
+			return false, err
+		}
+	}
 	return false, nil
 }
 
 func (g *GormDriver) IsUniqueEmail(email string) (bool, error) {
+	model := &GormProfileModel{}
+	err := g.db.Select("id").Where("email = ?", email).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return true, nil
+		} else {
+			return false, err
+		}
+	}
 	return false, nil
 }
 
-func (g *GormDriver) NewProfile(login, email, password string) (authentication.ProfileID, error) {
-	return 0, nil
-}
-func (g *GormDriver) DelProfile(profileID authentication.ProfileID) error {
-	return nil
-}
-
-func (g *GormDriver) SetPasswordProfileByEmail(email string, password string) error {
-	return nil
-}
-func (g *GormDriver) SetPasswordProfileByProfileID(profileID authentication.ProfileID, password string) error {
-	return nil
-}
-func (g *GormDriver) SetEmailByProfileID(profileID authentication.ProfileID, email string) error {
-	return nil
-}
-
-func (g *GormDriver) GetProfileIDByEmail(email string) (profileID authentication.ProfileID, err error) {
-	return 0, nil
-}
-func (g *GormDriver) GetPasswordByID(profileID authentication.ProfileID) (password string, err error) {
-	return "", nil
-}
-func (g *GormDriver) GetPasswordByLogin(login string) (res *authentication.ResultPasswordByLogin, err error) {
-	return
-}
-func (g *GormDriver) GetLoginByEmail(email string) (login string, err error) {
-	return
-}
-
 func (g *GormDriver) GetEmail(profileID authentication.ProfileID) (email string, err error) {
+	model := &GormProfileModel{}
+	err = g.db.Select("email").Where("id = ?", int64(profileID)).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = authentication.ErrProfileIdNotFound
+		}
+	}
+	email = model.Email
 	return
 }
+
 func (g *GormDriver) GetLogin(profileID authentication.ProfileID) (login string, err error) {
+	model := &GormProfileModel{}
+	err = g.db.Select("login").Where("id = ?", int64(profileID)).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = authentication.ErrProfileIdNotFound
+		}
+	}
+	login = model.Login
 	return
 }

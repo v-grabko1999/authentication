@@ -29,7 +29,6 @@ type DriverStorage interface {
 }
 
 type ResultPasswordByLogin struct {
-	Exist     bool
 	ProfileID ProfileID
 	Password  string
 }

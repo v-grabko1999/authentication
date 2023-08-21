@@ -6,6 +6,7 @@ import (
 
 	"github.com/v-grabko1999/authentication"
 
+	_ "gorm.io/driver/mysql"
 	_ "gorm.io/driver/postgres"
 	_ "gorm.io/driver/sqlite"
 	"gorm.io/gorm"

@@ -53,10 +53,10 @@ func newPoolLifeTime() *lifeTimeToBytes {
 func (p *lifeTimeToBytes) Conv(i TokenLifeTime) []byte {
 	buf := p.p.Get().(*PoolBytesRaw)
 	defer func() {
-		buf.BS = buf.BS[:0]
 		p.p.Put(buf)
 	}()
-	return buf.BS[:binary.PutVarint(buf.BS, int64(i))]
+	x := binary.PutVarint(buf.BS, int64(i))
+	return buf.BS[:x]
 }
 
 var poolHash = newPoolHash()

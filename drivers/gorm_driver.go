@@ -166,7 +166,7 @@ func (g *GormDriver) GetPasswordByLogin(login string) (res *authentication.Resul
 	err = g.db.Select([]string{"id", "password"}).Where("login = ?", login).First(model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			err = authentication.ErrProfileIdNotFound
+			err = authentication.ErrLoginNotFound
 		}
 	}
 	res = &authentication.ResultPasswordByLogin{

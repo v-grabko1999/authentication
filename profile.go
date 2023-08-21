@@ -1,9 +1,6 @@
 package authentication
 
 import (
-	"strings"
-	"sync"
-
 	"github.com/google/uuid"
 )
 
@@ -16,65 +13,30 @@ type profileConfig struct {
 func newToken(tokCfg *profileConfig, id ProfileID) *Profile {
 	return &Profile{
 		cfg:       tokCfg,
-		cache:     new(profileCache),
 		ProfileID: id,
 	}
 }
 
 type Profile struct {
 	cfg       *profileConfig
-	cache     *profileCache
 	ProfileID ProfileID
 }
 
-type profileCache struct {
-	email, login string
-	s            sync.RWMutex
-}
-
 func (t *Profile) GetEmail() (string, error) {
-	t.cache.s.RLock()
-	count := len(t.cache.email)
-	t.cache.s.RUnlock()
-	if count == 0 {
-		email, err := t.cfg.st.GetEmail(t.ProfileID)
-		if err != nil {
-			return "", err
-		}
-
-		t.cache.s.Lock()
-		t.cache.email = email
-		t.cache.s.Unlock()
-
-		return email, nil
-	} else {
-		t.cache.s.RLock()
-		defer t.cache.s.RUnlock()
-		return strings.Clone(t.cache.email), nil
+	email, err := t.cfg.st.GetEmail(t.ProfileID)
+	if err != nil {
+		return "", err
 	}
-
+	return email, nil
 }
 
 func (t *Profile) GetLogin() (string, error) {
-	t.cache.s.RLock()
-	count := len(t.cache.login)
-	t.cache.s.RUnlock()
-	if count == 0 {
-		login, err := t.cfg.st.GetLogin(t.ProfileID)
-		if err != nil {
-			return "", err
-		}
-
-		t.cache.s.Lock()
-		t.cache.login = login
-		t.cache.s.Unlock()
-
-		return login, nil
-	} else {
-		t.cache.s.RLock()
-		defer t.cache.s.RUnlock()
-		return strings.Clone(t.cache.login), nil
+	login, err := t.cfg.st.GetLogin(t.ProfileID)
+	if err != nil {
+		return "", err
 	}
+
+	return login, nil
 }
 
 func (t *Profile) ChangePassword(OldPassword, NewPassword string) error {

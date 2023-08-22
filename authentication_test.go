@@ -39,14 +39,17 @@ func testLogic(auth *authentication.Auth, t *testing.T) {
 	profile := testAuth(auth, t)
 	testProfile(profile, auth, t)
 	testToken(profile, auth, t)
+	testForgotPassword(auth, t)
+	testDeleteProfile(profile, auth, t)
+
 }
 
 const (
-	regEmail = "test@gmail.com"
-	regLogin = "admin"
+	regEmail = "admin_auth_test@gmail.com"
+	regLogin = "admin_auth_test"
 	regPass  = "test password"
 
-	changeEmail    = "newAdmin@gmail.com"
+	changeEmail    = "new_admin_auth_test@gmail.com"
 	changePassword = "new test password"
 )
 
@@ -138,7 +141,18 @@ func testProfile(prof *authentication.Profile, auth *authentication.Auth, t *tes
 	if prof.ProfileID == 0 {
 		t.Fatal("profile invalid ID")
 	}
+
 	//смена email
+
+	_, err := prof.ChangeEmail("regPass")
+	if err != nil {
+		if !errors.Is(err, authentication.ErrWrongPassword) {
+			t.Fatal("profile ChangeEmail error: ", err)
+		}
+	} else {
+		t.Fatal("profile ChangeEmail error: change password with invalid old password")
+	}
+
 	emailSecretKey, err := prof.ChangeEmail(regPass)
 	if err != nil {
 		t.Fatal("profile ChangeEmail error: ", err)
@@ -156,6 +170,15 @@ func testProfile(prof *authentication.Profile, auth *authentication.Auth, t *tes
 
 	if email != changeEmail {
 		t.Fatal("profile email != changeEmail: ", err)
+	}
+
+	err = prof.ChangePassword("regPass", changePassword)
+	if err != nil {
+		if !errors.Is(err, authentication.ErrWrongPassword) {
+			t.Fatal("profile ChangePassword error: ", err)
+		}
+	} else {
+		t.Fatal("profile ChangePassword error: change password with invalid old password")
 	}
 
 	err = prof.ChangePassword(regPass, changePassword)
@@ -178,5 +201,38 @@ func testToken(prof *authentication.Profile, auth *authentication.Auth, t *testi
 	if prof.ProfileID != newProfile.ProfileID {
 		t.Fatal("testToken prof.ProfileID != newProfile.ProfileID")
 	}
+
+	err = auth.DelPublicToken(tok, newProfile.ProfileID)
+	if err != nil {
+		t.Fatal("testToken DelPublicToken error:", tok)
+	}
 	t.Log("OK test token")
+}
+
+func testForgotPassword(auth *authentication.Auth, t *testing.T) {
+	emailSecretKey, err := auth.ForgotPassword(changeEmail)
+	if err != nil {
+		t.Fatal("auth.ForgotPassword error: ", err)
+	}
+
+	err = auth.RecoveryPassword(emailSecretKey, regPass)
+	if err != nil {
+		t.Fatal("auth.RecoveryPassword error: ", err)
+	}
+
+}
+
+func testDeleteProfile(profile *authentication.Profile, auth *authentication.Auth, t *testing.T) {
+	err := profile.DeleteProfile("regPass")
+	if err != nil {
+		if !errors.Is(err, authentication.ErrWrongPassword) {
+			t.Fatal("profile DeleteProfile error: ", err)
+		}
+	} else {
+		t.Fatal("profile DeleteProfile error: change password with invalid old password")
+	}
+
+	if err := profile.DeleteProfile(regPass); err != nil {
+		t.Fatal("DeleteProfile error:", err)
+	}
 }

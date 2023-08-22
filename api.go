@@ -108,6 +108,11 @@ func (a *Auth) RecoveryPassword(key EmailSecretKey, newPassword string) error {
 	if err != nil {
 		return err
 	}
+
+	err = a.st.EmailDeleteSecretKey(key)
+	if err != nil {
+		return err
+	}
 	return a.st.SetPasswordProfileByEmail(email, a.profilePasswordSalt.Hash(login, newPassword))
 }
 
@@ -120,7 +125,10 @@ func (a *Auth) AllowedChangeEmail(key EmailSecretKey, newEmail string) error {
 	if err != nil {
 		return err
 	}
-
+	err = a.st.EmailDeleteSecretKey(key)
+	if err != nil {
+		return err
+	}
 	return a.st.SetEmailByProfileID(pid, newEmail)
 }
 

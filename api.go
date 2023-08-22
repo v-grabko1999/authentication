@@ -175,7 +175,6 @@ func (a *Auth) DelPublicToken(publickToken string, profID ProfileID) error {
 	return a.st.DelToken(mTok.ID, profID)
 }
 
-// @todo реализовать проверку времени жизни токена
 func readToken(tokenSecretKey []byte, publickToken string) (*Token, error) {
 	bs, err := base64.URLEncoding.DecodeString(publickToken)
 	if err != nil {
@@ -192,6 +191,11 @@ func readToken(tokenSecretKey []byte, publickToken string) (*Token, error) {
 
 	if mtokHash != mTok.Hash {
 		return nil, ErrTokenInvalidSignature
+	}
+
+	//время жизни токена истекло
+	if int64(mTok.LifeTime) < time.Now().Unix() {
+		return nil, ErrTokenGoneLifeTime
 	}
 
 	return mTok, nil

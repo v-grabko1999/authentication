@@ -21,6 +21,7 @@ type GormProfileModel struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
 type GormTokenModel struct {
 	Key      string `gorm:"primarykey;size:36;autoIncrement:false"`
 	Expiries int64

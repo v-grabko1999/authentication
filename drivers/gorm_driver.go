@@ -96,8 +96,12 @@ func (g *GormDriver) ReadToken(tokenID authentication.TokenID) (authentication.P
 	model := &GormTokenModel{}
 	err := g.db.Where("key = ?", string(tokenID)).First(model).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = authentication.ErrTokenNotFound
+		}
 		return 0, err
 	}
+
 	//время жизни токена истекло
 	if model.Expiries < time.Now().Unix() {
 		if err := g.DelToken(tokenID, authentication.ProfileID(model.ProfileID)); err != nil {

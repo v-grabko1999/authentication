@@ -3,6 +3,13 @@ golang package authentication
 
 example usage package to authentication_test.go
 
+- Registration
+- Authentication
+- ForgotPassword and RecoveryPassword
+- ChangeEmail
+- ChangePassword
+- PublicToken 
+- DeleteProfile
 
 ```code
 PASS

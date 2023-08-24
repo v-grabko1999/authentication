@@ -44,7 +44,7 @@ type DriverStorage interface {
 
 	NewProfile(login, email, password string) (ProfileID, error)
 	DelProfile(profileID ProfileID) error
-
+	ProfileExist(profileID ProfileID) (exists bool, err error)
 	SetPasswordProfileByEmail(email string, password string) error
 	SetPasswordProfileByProfileID(profileID ProfileID, password string) error
 	SetEmailByProfileID(profileID ProfileID, email string) error

@@ -193,30 +193,19 @@ func (g *GormDriver) GetLoginByEmail(email string) (login string, err error) {
 	return
 }
 
-func (g *GormDriver) IsUniqueLogin(login string) (bool, error) {
-	model := &GormProfileModel{}
-	err := g.db.Select("id").Where("login = ?", login).First(model).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return true, nil
-		} else {
-			return false, err
-		}
-	}
-	return false, nil
+func (g *GormDriver) ProfileExist(profileID authentication.ProfileID) (exists bool, err error) {
+	err = g.db.Model(&GormProfileModel{}).Select("count(*) > 0").Limit(1).Where("id = ?", int64(profileID)).Find(&exists).Error
+	return
 }
 
-func (g *GormDriver) IsUniqueEmail(email string) (bool, error) {
-	model := &GormProfileModel{}
-	err := g.db.Select("id").Where("email = ?", email).First(model).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return true, nil
-		} else {
-			return false, err
-		}
-	}
-	return false, nil
+func (g *GormDriver) IsUniqueLogin(login string) (exists bool, err error) {
+	err = g.db.Model(&GormProfileModel{}).Select("count(*) == 0").Limit(1).Where("login = ?", login).Find(&exists).Error
+	return
+}
+
+func (g *GormDriver) IsUniqueEmail(email string) (exists bool, err error) {
+	err = g.db.Model(&GormProfileModel{}).Select("count(*) == 0").Limit(1).Where("email = ?", email).Find(&exists).Error
+	return
 }
 
 func (g *GormDriver) GetEmail(profileID authentication.ProfileID) (email string, err error) {

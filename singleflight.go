@@ -6,7 +6,7 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-func RunSingleflightDriverStorage(st DriverStorage) DriverStorage {
+func singleflightDriverStorage(st DriverStorage) DriverStorage {
 	sing := new(SingleflightDriverStorage)
 	sing.st = st
 	return sing
@@ -66,6 +66,13 @@ func (sing *SingleflightDriverStorage) NewProfile(login, email, password string)
 }
 func (sing *SingleflightDriverStorage) DelProfile(profileID ProfileID) error {
 	return sing.st.DelProfile(profileID)
+}
+
+func (sing *SingleflightDriverStorage) ProfileExist(profileID ProfileID) (exists bool, err error) {
+	v, err, _ := sing.req.Do(fmt.Sprint("9", profileID), func() (interface{}, error) {
+		return sing.st.ProfileExist(profileID)
+	})
+	return v.(bool), err
 }
 
 func (sing *SingleflightDriverStorage) SetPasswordProfileByEmail(email string, password string) error {

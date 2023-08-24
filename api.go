@@ -27,7 +27,7 @@ func NewAuth(cfg AuthConfig) *Auth {
 	passwordHasher.bs = cfg.ProfilePasswordSalt
 
 	tokConfig := &profileConfig{
-		st:             cfg.DriverStorage,
+		st:             singleflightDriverStorage(cfg.DriverStorage),
 		passwordHasher: passwordHasher,
 		emailLifeTime:  cfg.EmailLifeTimeSecond,
 	}
@@ -91,6 +91,18 @@ func (a *Auth) Authentication(login, password string) (*Profile, error) {
 	}
 
 	return newProfile(a.tokenConfig, res.ProfileID), nil
+}
+
+func (a *Auth) ProfileByID(profileID ProfileID) (*Profile, error) {
+	ok, err := a.st.ProfileExist(profileID)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return newProfile(a.tokenConfig, profileID), nil
+	} else {
+		return nil, ErrProfileIdNotFound
+	}
 }
 
 func (a *Auth) ForgotPassword(email string) (EmailSecretKey, error) {

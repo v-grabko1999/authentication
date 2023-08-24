@@ -24,7 +24,7 @@ func TestGormDriver(t *testing.T) {
 	}
 
 	auth := authentication.NewAuth(authentication.AuthConfig{
-		DriverStorage:       authentication.RunSingleflightDriverStorage(dr),
+		DriverStorage:       dr,
 		EmailLifeTimeSecond: 60 * 60 * 24,
 		ProfilePasswordSalt: []byte("test password salt"),
 		TokenSecretKey:      []byte("token secret keu"),
@@ -40,6 +40,8 @@ func testLogic(auth *authentication.Auth, t *testing.T) {
 	testProfile(profile, auth, t)
 	testToken(profile, auth, t)
 	testForgotPassword(auth, t)
+
+	testProfileByID(auth, t, profile.ProfileID)
 	testDeleteProfile(profile, auth, t)
 
 }
@@ -53,6 +55,23 @@ const (
 	changePassword = "new test password"
 )
 
+func testProfileByID(auth *authentication.Auth, t *testing.T, existProfID authentication.ProfileID) {
+	_, err := auth.ProfileByID(existProfID)
+	if err != nil {
+		t.Fatal("testProfileByID error", err)
+	}
+
+	_, err = auth.ProfileByID(existProfID * 99)
+	if err == nil {
+		t.Fatal("testProfileByID error", err)
+	} else {
+		if err == authentication.ErrProfileIdNotFound {
+			t.Log("testProfileByID OK", authentication.ErrProfileIdNotFound)
+		} else {
+			t.Fatal("testProfileByID error", err)
+		}
+	}
+}
 func testRegistr(auth *authentication.Auth, t *testing.T) {
 	//создаем нового пользователя
 	profile, err := auth.Registration(regLogin, regEmail, regPass)

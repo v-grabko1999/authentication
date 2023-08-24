@@ -10,7 +10,7 @@ type profileConfig struct {
 	emailLifeTime  int64
 }
 
-func newToken(tokCfg *profileConfig, id ProfileID) *Profile {
+func newProfile(tokCfg *profileConfig, id ProfileID) *Profile {
 	return &Profile{
 		cfg:       tokCfg,
 		ProfileID: id,

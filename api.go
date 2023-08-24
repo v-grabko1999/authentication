@@ -74,7 +74,7 @@ func (a *Auth) Registration(login, email, password string) (*Profile, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newToken(a.tokenConfig, profID), nil
+	return newProfile(a.tokenConfig, profID), nil
 }
 
 func (a *Auth) Authentication(login, password string) (*Profile, error) {
@@ -90,7 +90,7 @@ func (a *Auth) Authentication(login, password string) (*Profile, error) {
 		return nil, ErrWrongLoginOrPassword
 	}
 
-	return newToken(a.tokenConfig, res.ProfileID), nil
+	return newProfile(a.tokenConfig, res.ProfileID), nil
 }
 
 func (a *Auth) ForgotPassword(email string) (EmailSecretKey, error) {
@@ -147,7 +147,6 @@ func (a *Auth) NewToken(prof *Profile, tokenLifeTimeSecond TokenLifeTime) (strin
 	}
 
 	mTok.Hash = signature(a.tokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
-
 	bs, err := json.Marshal(mTok)
 	if err != nil {
 		return "", err
@@ -166,13 +165,12 @@ func (a *Auth) ReadToken(publickToken string) (*Profile, error) {
 		return nil, err
 	}
 
-	tok := new(Profile)
-	tok.ProfileID, err = a.st.ReadToken(mTok.ID)
+	profileID, err := a.st.ReadToken(mTok.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	return tok, nil
+	return newProfile(a.tokenConfig, profileID), nil
 }
 
 func (a *Auth) DelPublicToken(publickToken string, profID ProfileID) error {

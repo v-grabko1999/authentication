@@ -150,7 +150,7 @@ type Token struct {
 	Hash     string
 }
 
-var poolLifeTIME = newPoolLifeTime()
+var poolInt64 = NewInt64ToBytes()
 
 func (a *Auth) NewToken(prof *Profile, tokenLifeTimeSecond TokenLifeTime) (string, error) {
 	mTok := &Token{
@@ -158,7 +158,7 @@ func (a *Auth) NewToken(prof *Profile, tokenLifeTimeSecond TokenLifeTime) (strin
 		LifeTime: TokenLifeTime(time.Now().Unix()) + tokenLifeTimeSecond,
 	}
 
-	mTok.Hash = signature(a.tokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
+	mTok.Hash = signature(a.tokenSecretKey, []byte(mTok.ID), poolInt64.Conv(int64(mTok.LifeTime)))
 	bs, err := json.Marshal(mTok)
 	if err != nil {
 		return "", err
@@ -205,7 +205,7 @@ func readToken(tokenSecretKey []byte, publickToken string) (*Token, error) {
 		return nil, err
 	}
 
-	mtokHash := signature(tokenSecretKey, []byte(mTok.ID), poolLifeTIME.Conv(mTok.LifeTime))
+	mtokHash := signature(tokenSecretKey, []byte(mTok.ID), poolInt64.Conv(int64(mTok.LifeTime)))
 
 	if mtokHash != mTok.Hash {
 		return nil, ErrTokenInvalidSignature

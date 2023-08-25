@@ -32,7 +32,7 @@ func (p *poolHASH) Put(b hash.Hash) {
 	p.p.Put(b)
 }
 
-type lifeTimeToBytes struct {
+type Int64ToBytes struct {
 	p *sync.Pool
 }
 
@@ -40,8 +40,8 @@ type PoolBytesRaw struct {
 	BS []byte
 }
 
-func newPoolLifeTime() *lifeTimeToBytes {
-	return &lifeTimeToBytes{
+func NewInt64ToBytes() *Int64ToBytes {
+	return &Int64ToBytes{
 		p: &sync.Pool{
 			New: func() any {
 				return &PoolBytesRaw{make([]byte, binary.MaxVarintLen64)}
@@ -50,7 +50,7 @@ func newPoolLifeTime() *lifeTimeToBytes {
 	}
 }
 
-func (p *lifeTimeToBytes) Conv(i TokenLifeTime) []byte {
+func (p *Int64ToBytes) Conv(i int64) []byte {
 	buf := p.p.Get().(*PoolBytesRaw)
 	defer func() {
 		p.p.Put(buf)

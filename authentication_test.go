@@ -2,16 +2,44 @@ package authentication_test
 
 import (
 	"errors"
+	"runtime/debug"
 	"testing"
 
+	"github.com/coocood/freecache"
 	"github.com/v-grabko1999/authentication"
 	"github.com/v-grabko1999/authentication/drivers"
+	"github.com/v-grabko1999/cache"
+	cache_driver "github.com/v-grabko1999/cache/drivers"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
+func TestChGormDriver(t *testing.T) {
+	fr := freecache.NewCache(100 * 1024 * 1024)
+	debug.SetGCPercent(20)
+
+	ch := cache.NewCache(cache_driver.NewFreeCacheDriver(fr))
+
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&foreign_keys=on"), &gorm.Config{
+		PrepareStmt: true,
+	})
+	if err != nil {
+		t.Fatal("error open sqlLite", err)
+		return
+	}
+
+	dr, err := drivers.NewChGorm(ch, db)
+	if err != nil {
+		t.Fatal("error new gorm driver", err)
+		return
+	}
+	testLogic(dr, t)
+}
+
 func TestGormDriver(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&foreign_keys=on"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared&foreign_keys=on"), &gorm.Config{
+		PrepareStmt: true,
+	})
 	if err != nil {
 		t.Fatal("error open sqlLite", err)
 		return
@@ -23,27 +51,24 @@ func TestGormDriver(t *testing.T) {
 		return
 	}
 
+	t.Log("ok init authentication module")
+	testLogic(dr, t)
+}
+
+func testLogic(dr authentication.DriverStorage, t *testing.T) {
 	auth := authentication.NewAuth(authentication.AuthConfig{
 		DriverStorage:       dr,
 		EmailLifeTimeSecond: 60 * 60 * 24,
 		ProfilePasswordSalt: []byte("test password salt"),
 		TokenSecretKey:      []byte("token secret keu"),
 	})
-
-	t.Log("ok init authentication module")
-	testLogic(auth, t)
-}
-
-func testLogic(auth *authentication.Auth, t *testing.T) {
 	testRegistr(auth, t)
 	profile := testAuth(auth, t)
 	testProfile(profile, auth, t)
 	testToken(profile, auth, t)
 	testForgotPassword(auth, t)
-
 	testProfileByID(auth, t, profile.ProfileID)
 	testDeleteProfile(profile, auth, t)
-
 }
 
 const (

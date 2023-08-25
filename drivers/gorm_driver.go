@@ -36,6 +36,18 @@ type GormEmailSecretKeyModel struct {
 	Expiries int64
 }
 
+func (model *GormEmailSecretKeyModel) read(db *gorm.DB, key authentication.EmailSecretKey) error {
+	err := db.Where("key = ?", string(key)).First(model).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return authentication.ErrEmailSecretKeyNotFound
+		} else {
+			return err
+		}
+	}
+	return nil
+}
+
 func NewGorm(db *gorm.DB) (authentication.DriverStorage, error) {
 	err := db.AutoMigrate(&GormProfileModel{}, &GormTokenModel{}, &GormEmailSecretKeyModel{})
 	if err != nil {
@@ -60,15 +72,10 @@ func (g *GormDriver) EmailNewSecretKey(key authentication.EmailSecretKey, email 
 
 func (g *GormDriver) EmailReadSecretKey(key authentication.EmailSecretKey) (string, error) {
 	model := &GormEmailSecretKeyModel{}
-	err := g.db.Where("key = ?", string(key)).First(model).Error
+	err := model.read(g.db, key)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", authentication.ErrEmailSecretKeyNotFound
-		} else {
-			return "", err
-		}
+		return "", err
 	}
-
 	//время жизни секретного ключа истекло
 	if model.Expiries < time.Now().Unix() {
 		if err := g.EmailDeleteSecretKey(key); err != nil {
@@ -92,15 +99,19 @@ func (g *GormDriver) NewToken(tokenID authentication.TokenID, profileID authenti
 	}).Error
 }
 
-func (g *GormDriver) ReadToken(tokenID authentication.TokenID) (authentication.ProfileID, error) {
-	model := &GormTokenModel{}
-	err := g.db.Where("key = ?", string(tokenID)).First(model).Error
+func (model *GormTokenModel) read(db *gorm.DB, tokenID authentication.TokenID) error {
+	err := db.Where("key = ?", string(tokenID)).First(model).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			err = authentication.ErrTokenNotFound
 		}
-		return 0, err
 	}
+	return err
+}
+
+func (g *GormDriver) ReadToken(tokenID authentication.TokenID) (authentication.ProfileID, error) {
+	model := &GormTokenModel{}
+	err := model.read(g.db, tokenID)
 
 	//время жизни токена истекло
 	if model.Expiries < time.Now().Unix() {
